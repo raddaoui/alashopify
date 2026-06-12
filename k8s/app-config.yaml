@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: shopdemo
+data:
+  # Internal service discovery (ClusterIP service names)
+  USERS_URL: "http://users"
+  PRODUCTS_URL: "http://products"
+  ORDERS_URL: "http://orders"
+  # Database connection
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "shopdb"
+  HTTP_TIMEOUT: "5"

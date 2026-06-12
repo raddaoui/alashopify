@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  namespace: shopdemo
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS shopdb;
+    USE shopdb;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(128) NOT NULL,
+      email VARCHAR(255) NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(128) NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      stock INT NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      total DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL,
+      line_total DECIMAL(10,2) NOT NULL
+    );
+
+    INSERT INTO users (name, email) VALUES
+      ('Ada Lovelace', 'ada@example.com'),
+      ('Alan Turing', 'alan@example.com'),
+      ('Grace Hopper', 'grace@example.com');
+
+    INSERT INTO products (name, price, stock) VALUES
+      ('Wireless Mouse', 24.99, 150),
+      ('Mechanical Keyboard', 89.50, 80),
+      ('27" Monitor', 219.00, 40),
+      ('USB-C Hub', 39.95, 200),
+      ('Laptop Stand', 34.00, 120),
+      ('Webcam 1080p', 59.99, 95),
+      ('Noise-cancelling Headset', 129.00, 60),
+      ('Desk Lamp', 27.50, 175),
+      ('External SSD 1TB', 109.00, 70),
+      ('Ergonomic Chair', 349.00, 25);

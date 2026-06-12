@@ -1,0 +1,111 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches:
+      - main
+      - release/v2
+  workflow_dispatch:
+
+env:
+  # These must match the names used in the README provisioning commands.
+  RESOURCE_GROUP: ala-shopify-rg
+  ACR_NAME: alashopifyacr
+  AKS_CLUSTER: ala-shopify-aks
+  K8S_NAMESPACE: shopdemo
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway, users, products, orders]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push image
+        run: |
+          ACR_LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer -o tsv)
+          docker build \
+            -f services/${{ matrix.service }}/Dockerfile \
+            -t $ACR_LOGIN_SERVER/${{ matrix.service }}:${{ env.IMAGE_TAG }} \
+            -t $ACR_LOGIN_SERVER/${{ matrix.service }}:latest \
+            .
+          docker push $ACR_LOGIN_SERVER/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+          docker push $ACR_LOGIN_SERVER/${{ matrix.service }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER }} \
+            --overwrite-existing
+
+      - name: Resolve ACR login server
+        run: |
+          echo "ACR_LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer -o tsv)" >> $GITHUB_ENV
+
+      - name: Apply base manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/app-config.yaml
+          kubectl apply -f k8s/app-secret.yaml
+          kubectl apply -f k8s/mysql-initdb-configmap.yaml
+          kubectl apply -f k8s/mysql-statefulset.yaml
+
+      - name: Inject Application Insights connection string
+        env:
+          APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPINSIGHTS_CONNECTION_STRING }}
+        run: |
+          if [ -z "$APPINSIGHTS_CONNECTION_STRING" ]; then
+            echo "APPINSIGHTS_CONNECTION_STRING secret not set; skipping telemetry wiring."
+            exit 0
+          fi
+          kubectl create secret generic app-secret \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --from-literal=MYSQL_USER=shop \
+            --from-literal=MYSQL_PASSWORD=shoppass \
+            --from-literal=MYSQL_ROOT_PASSWORD=rootpass \
+            --from-literal=APPLICATIONINSIGHTS_CONNECTION_STRING="$APPINSIGHTS_CONNECTION_STRING" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy services
+        run: |
+          export ACR_LOGIN_SERVER=${{ env.ACR_LOGIN_SERVER }}
+          export IMAGE_TAG=${{ env.IMAGE_TAG }}
+          for svc in products users orders gateway; do
+            envsubst < k8s/$svc.yaml | kubectl apply -f -
+          done
+
+      - name: Wait for rollouts
+        run: |
+          for svc in products users orders gateway; do
+            kubectl rollout status deployment/$svc -n ${{ env.K8S_NAMESPACE }} --timeout=180s
+          done
+
+      - name: Show service endpoint
+        run: |
+          echo "Gateway external IP:"
+          kubectl get svc gateway -n ${{ env.K8S_NAMESPACE }} -o wide
