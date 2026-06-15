@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - release/v2
+      - feature/loyalty-discount
     paths-ignore:
       - '**.md'
       - 'docs/**'
