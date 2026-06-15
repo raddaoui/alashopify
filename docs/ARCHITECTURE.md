@@ -126,9 +126,3 @@ flowchart LR
 ## Branches
 
 - **`main`** — the baseline of the application.
-- **`release/v2`** — a candidate release deployed for the SRE agent demo.
-
-The SRE agent is expected to detect, localize, and diagnose any regression in a
-deployed release on its own, using the available telemetry (distributed traces,
-metrics, logs) and alert signals — without being told in advance what, where, or
-why something is wrong.

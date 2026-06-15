@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Creates Azure Monitor alert rules for the shop demo so the Azure SRE agent
-# (and humans) get notified when the release/v2 fault degrades checkout.
+# (and humans) get notified when a regression degrades checkout.
 #
 # Prereqs: az CLI logged in, App Insights + Log Analytics already created
 # (see README). Set the variables below or export them before running.

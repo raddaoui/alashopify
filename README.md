@@ -5,9 +5,6 @@ database, deployed to **Azure Kubernetes Service (AKS)**, with images in **Azure
 Container Registry (ACR)**, **OpenTelemetry → Application Insights** tracing, and
 **Azure Monitor alert rules**.
 
-The demo's purpose: deploy a healthy `main`, then deploy a broken `release/v2`
-that degrades the checkout path (high latency + intermittent HTTP 500s) and let
-the **Azure SRE agent** detect, diagnose, and recommend a fix.
 
 > See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture.
 
@@ -232,29 +229,6 @@ This creates:
 - **checkout-5xx-rate** — fires when checkout returns HTTP 5xx
 - **checkout-high-latency** — fires when checkout p95 > 800ms
 - **shop-pod-restarts** — fires when shopdemo pods restart repeatedly
-
----
-
-## 7. The SRE agent demo
-
-1. Confirm `main` is deployed and healthy (load test shows fast 200s).
-2. Deploy the broken version:
-   ```bash
-   git checkout release/v2
-   git push origin release/v2
-   ```
-   The workflow rolls out the faulty `orders` service.
-3. Keep the load test running. You'll see checkout latency climb and
-   intermittent **HTTP 500s**; the alert rules fire.
-4. Let the **Azure SRE agent** investigate. Expected findings:
-   - Elevated checkout latency + 5xx isolated to the `orders` service.
-   - Distributed traces point to a slow database operation on the checkout path.
-   - An unhandled edge case causing 500s on certain inputs.
-5. Suggested fix: revert/redeploy `main` (or remove the artificial slow query
-   and add input handling in `orders`).
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#the-injected-fault-releasev2)
-for the exact fault and expected diagnosis.
 
 ---
 
