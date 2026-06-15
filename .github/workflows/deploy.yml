@@ -5,6 +5,11 @@ on:
     branches:
       - main
       - release/v2
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 env:
