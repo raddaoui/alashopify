@@ -200,6 +200,8 @@ curl -X POST http://$GATEWAY_IP/api/checkout \
   -d '{"user_id": 1, "items": [{"product_id": 2, "quantity": 1}]}'
 ```
 
+Open `http://$GATEWAY_IP/` in a browser for the storefront UI (product grid, cart, and checkout), served directly by the gateway.
+
 ---
 
 ## 5. Generate load

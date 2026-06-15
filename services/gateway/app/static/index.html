@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ala-shopify — demo storefront</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-2: #273449;
+      --accent: #6366f1;
+      --accent-2: #818cf8;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --ok: #22c55e;
+      --err: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
+    .brand .logo {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid; place-items: center; font-size: 18px;
+    }
+    .brand small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .user-select label { font-size: 12px; color: var(--muted); margin-right: 6px; }
+    select {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 10px; font-size: 13px;
+    }
+    .cart-btn {
+      position: relative; background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 14px; cursor: pointer; color: var(--text);
+      font-size: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .cart-btn .count {
+      background: var(--accent); color: #fff; border-radius: 999px;
+      font-size: 11px; min-width: 19px; height: 19px; padding: 0 5px;
+      display: grid; place-items: center; font-weight: 700;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+    .grid {
+      display: grid; gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+    .card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px; display: flex; flex-direction: column; gap: 10px;
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+    .thumb {
+      height: 110px; border-radius: 10px; display: grid; place-items: center;
+      font-size: 44px; background: linear-gradient(135deg, #312e81, #1e293b);
+    }
+    .card .name { font-weight: 600; font-size: 15px; }
+    .card .price { color: var(--accent-2); font-weight: 700; font-size: 17px; }
+    .card .stock { font-size: 12px; color: var(--muted); }
+    .add {
+      margin-top: auto; background: var(--accent); color: #fff; border: none;
+      border-radius: 9px; padding: 10px; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .add:hover { background: var(--accent-2); }
+
+    /* Cart drawer */
+    .drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none;
+      transition: opacity .2s ease; z-index: 20;
+    }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; top: 0; right: 0; height: 100%; width: 380px; max-width: 90vw;
+      background: var(--panel); border-left: 1px solid var(--border);
+      transform: translateX(100%); transition: transform .25s ease; z-index: 30;
+      display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer h2 { margin: 0; padding: 20px; border-bottom: 1px solid var(--border); font-size: 18px; }
+    .cart-items { flex: 1; overflow-y: auto; padding: 12px 20px; }
+    .cart-row {
+      display: flex; align-items: center; gap: 12px; padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cart-row .ci-name { flex: 1; font-size: 14px; }
+    .cart-row .ci-name small { display: block; color: var(--muted); font-size: 12px; }
+    .qty { display: flex; align-items: center; gap: 6px; }
+    .qty button {
+      width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 14px;
+    }
+    .empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px; }
+    .drawer-foot { padding: 20px; border-top: 1px solid var(--border); }
+    .total-row { display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+    .checkout {
+      width: 100%; background: var(--ok); color: #04210f; border: none; border-radius: 10px;
+      padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .checkout:disabled { opacity: .5; cursor: not-allowed; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 13px 20px; font-size: 14px; transition: transform .25s ease; z-index: 40;
+      max-width: 90vw;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.ok { border-color: var(--ok); }
+    .toast.err { border-color: var(--err); }
+    .loading { color: var(--muted); padding: 40px; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">🛍️</span>
+      <div>
+        ala-shopify
+        <small>SRE Agent demo storefront</small>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-select">
+        <label for="user">Signed in as</label>
+        <select id="user">
+          <option value="1">Ada Lovelace</option>
+          <option value="2">Alan Turing</option>
+          <option value="3">Grace Hopper</option>
+        </select>
+      </div>
+      <button class="cart-btn" id="openCart">
+        🛒 Cart <span class="count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <h1>Today's catalog</h1>
+    <p class="subtitle">Browse products, add to cart, and check out — every action calls the live microservices through the gateway.</p>
+    <div class="grid" id="grid">
+      <div class="loading">Loading products…</div>
+    </div>
+  </main>
+
+  <div class="drawer-backdrop" id="backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <h2>Your cart</h2>
+    <div class="cart-items" id="cartItems">
+      <div class="empty">Your cart is empty.</div>
+    </div>
+    <div class="drawer-foot">
+      <div class="total-row"><span>Total</span><span id="total">$0.00</span></div>
+      <button class="checkout" id="checkout" disabled>Checkout</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const emojis = ["🖱️", "⌨️", "🖥️", "🔌", "💻", "📷", "🎧", "💡", "💾", "🪑"];
+    const state = { products: [], cart: {} };
+
+    const $ = (id) => document.getElementById(id);
+
+    function toast(msg, kind = "") {
+      const t = $("toast");
+      t.textContent = msg;
+      t.className = "toast show " + kind;
+      setTimeout(() => (t.className = "toast " + kind), 2600);
+    }
+
+    function money(n) { return "$" + Number(n).toFixed(2); }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch("/api/products");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        state.products = Array.isArray(data) ? data : (data.products || []);
+        renderGrid();
+      } catch (e) {
+        $("grid").innerHTML = `<div class="loading">Failed to load products (${e.message}).</div>`;
+      }
+    }
+
+    function renderGrid() {
+      const grid = $("grid");
+      if (!state.products.length) {
+        grid.innerHTML = `<div class="loading">No products available.</div>`;
+        return;
+      }
+      grid.innerHTML = "";
+      state.products.forEach((p, i) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="thumb">${emojis[i % emojis.length]}</div>
+          <div class="name">${p.name}</div>
+          <div class="price">${money(p.price)}</div>
+          <div class="stock">${p.stock != null ? p.stock + " in stock" : ""}</div>
+          <button class="add" data-id="${p.id}">Add to cart</button>
+        `;
+        card.querySelector(".add").addEventListener("click", () => addToCart(p.id));
+        grid.appendChild(card);
+      });
+    }
+
+    function addToCart(id) {
+      state.cart[id] = (state.cart[id] || 0) + 1;
+      renderCart();
+      const p = state.products.find((x) => x.id === id);
+      toast(`Added ${p ? p.name : "item"} to cart`, "ok");
+    }
+
+    function changeQty(id, delta) {
+      state.cart[id] = (state.cart[id] || 0) + delta;
+      if (state.cart[id] <= 0) delete state.cart[id];
+      renderCart();
+    }
+
+    function renderCart() {
+      const items = $("cartItems");
+      const ids = Object.keys(state.cart);
+      const count = ids.reduce((s, id) => s + state.cart[id], 0);
+      $("cartCount").textContent = count;
+      $("checkout").disabled = count === 0;
+
+      if (!ids.length) {
+        items.innerHTML = `<div class="empty">Your cart is empty.</div>`;
+        $("total").textContent = "$0.00";
+        return;
+      }
+      let total = 0;
+      items.innerHTML = "";
+      ids.forEach((id) => {
+        const p = state.products.find((x) => x.id === Number(id));
+        if (!p) return;
+        const qty = state.cart[id];
+        total += p.price * qty;
+        const row = document.createElement("div");
+        row.className = "cart-row";
+        row.innerHTML = `
+          <div class="ci-name">${p.name}<small>${money(p.price)} each</small></div>
+          <div class="qty">
+            <button data-d="-1">−</button>
+            <span>${qty}</span>
+            <button data-d="1">+</button>
+          </div>
+        `;
+        row.querySelectorAll("button").forEach((b) =>
+          b.addEventListener("click", () => changeQty(Number(id), Number(b.dataset.d)))
+        );
+        items.appendChild(row);
+      });
+      $("total").textContent = money(total);
+    }
+
+    function openCart(open) {
+      $("drawer").classList.toggle("open", open);
+      $("backdrop").classList.toggle("open", open);
+    }
+
+    async function checkout() {
+      const items = Object.keys(state.cart).map((id) => ({
+        product_id: Number(id),
+        quantity: state.cart[id],
+      }));
+      if (!items.length) return;
+      const btn = $("checkout");
+      btn.disabled = true;
+      btn.textContent = "Placing order…";
+      try {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: Number($("user").value), items }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || ("HTTP " + res.status));
+        toast(`Order #${data.order_id ?? "?"} placed — total ${money(data.total ?? 0)}`, "ok");
+        state.cart = {};
+        renderCart();
+        openCart(false);
+      } catch (e) {
+        toast("Checkout failed: " + e.message, "err");
+      } finally {
+        btn.textContent = "Checkout";
+        btn.disabled = Object.keys(state.cart).length === 0;
+      }
+    }
+
+    $("openCart").addEventListener("click", () => openCart(true));
+    $("backdrop").addEventListener("click", () => openCart(false));
+    $("checkout").addEventListener("click", checkout);
+
+    loadProducts();
+  </script>
+</body>
+</html>
