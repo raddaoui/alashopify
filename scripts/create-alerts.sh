@@ -25,7 +25,7 @@ az monitor action-group create \
   --name shop-sre-ag \
   --resource-group "$RESOURCE_GROUP" \
   --short-name shopsre \
-  --email-receiver name=sre email="$ALERT_EMAIL"
+  --action email sre "$ALERT_EMAIL"
 
 AG_ID=$(az monitor action-group show \
   --name shop-sre-ag -g "$RESOURCE_GROUP" --query id -o tsv)
@@ -49,8 +49,8 @@ az monitor scheduled-query create \
   --resource-group "$RESOURCE_GROUP" \
   --scopes "$AI_ID" \
   --description "Checkout p95 latency above 800ms" \
-  --condition "avg 'P95Duration' > 800" \
-  --condition-query P95Duration="requests | where url endswith '/api/checkout' or name contains 'checkout' | summarize P95Duration = percentile(duration, 95)" \
+  --condition "avg 'P95Duration' from 'CheckoutLatency' > 800" \
+  --condition-query CheckoutLatency="requests | where url endswith '/api/checkout' or name contains 'checkout' | summarize P95Duration = percentile(duration, 95)" \
   --evaluation-frequency 5m \
   --window-size 5m \
   --severity 2 \
