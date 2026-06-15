@@ -155,6 +155,88 @@ kubectl rollout status  deploy/orders -n shopdemo
 - `kubectl get svc gateway -n shopdemo -w` and wait for the LoadBalancer IP to
   be assigned. It can take a couple of minutes.
 
+### Checkout is slow or returns intermittent 5xx
+When `POST /api/checkout` (gateway) — or the downstream `POST /orders` — shows
+high latency or sporadic `500`s, investigate in this order:
+
+1. **Confirm the symptom and measure it.** Hit checkout and time it:
+   ```bash
+   GATEWAY_IP=$(kubectl get svc gateway -n shopdemo \
+     -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+   for i in $(seq 1 20); do
+     curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" \
+       -X POST "http://$GATEWAY_IP/api/checkout" \
+       -H "Content-Type: application/json" \
+       -d '{"user_id":1,"items":[{"product_id":1,"quantity":1}]}'
+   done
+   ```
+   Watch for elevated `time_total` and any `500` status codes.
+
+2. **Check the orders service logs** for errors/stack traces around checkout:
+   ```bash
+   kubectl logs -n shopdemo deploy/orders --tail=100
+   kubectl logs -n shopdemo deploy/orders --tail=200 | grep -iE "error|exception|trace"
+   ```
+
+3. **Use App Insights to localize the bottleneck.** Open a slow/failed checkout
+   trace and walk the spans — the request → downstream service → DB call chain
+   shows which span dominates the latency. See the KQL below.
+
+4. **Check the database side** if a DB span is slow — connectivity and live
+   queries:
+   ```bash
+   kubectl exec -it -n shopdemo deploy/orders -- /bin/sh -c \
+     'python -c "from common.db import ping; ping(); print(\"db ok\")"'
+   ```
+
+5. **Look for resource pressure / restarts** on the implicated service:
+   ```bash
+   kubectl get pods -n shopdemo -l app=orders
+   kubectl describe pod -n shopdemo -l app=orders | grep -iE "Restart|OOM|Throttl"
+   ```
+
+Relevant KQL (App Insights / Log Analytics Logs blade):
+```kusto
+// Checkout latency percentiles and failure rate over time
+requests
+| where timestamp > ago(1h)
+| where name has "checkout" or name has "/orders"
+| summarize p50=percentile(duration,50), p95=percentile(duration,95),
+            p99=percentile(duration,99), failures=countif(success == false), count()
+  by bin(timestamp, 1m)
+| order by timestamp desc
+
+// Slow dependency calls (e.g. DB) behind the request
+dependencies
+| where timestamp > ago(1h)
+| summarize p95=percentile(duration,95), count() by type, target, name
+| order by p95 desc
+
+// Exceptions on the checkout/orders path
+exceptions
+| where timestamp > ago(1h)
+| where operation_Name has "checkout" or operation_Name has "/orders"
+| project timestamp, cloud_RoleName, type, outerMessage, operation_Id
+| order by timestamp desc
+```
+
+### Which build (branch + commit) is running in prod
+Each deployment is stamped at deploy time with the source branch and commit SHA
+(see `.github/workflows/deploy.yml`). To see what's actually live:
+```bash
+# Branch + commit annotation per deployment
+kubectl get deploy -n shopdemo \
+  -o custom-columns='NAME:.metadata.name,BRANCH:.metadata.annotations.sre-demo\.deploy/branch,COMMIT:.metadata.annotations.sre-demo\.deploy/commit'
+
+# Or the running image tag (also the commit SHA)
+kubectl get deploy -n shopdemo \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+```
+Map a SHA back to a branch with `git branch -a --contains <sha>` and
+`git log -1 <sha> --oneline`. The most authoritative source is the GitHub
+Actions "Build and Deploy to AKS" run that last deployed.
+
 ### Nothing showing up in Application Insights
 This is the most common observability gotcha. Work through it in order:
 
