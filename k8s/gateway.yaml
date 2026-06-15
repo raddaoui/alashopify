@@ -5,6 +5,10 @@ metadata:
   namespace: shopdemo
   labels:
     app: gateway
+    app.kubernetes.io/version: "${GIT_SHA}"
+  annotations:
+    sre-demo.deploy/branch: "${GIT_BRANCH}"
+    sre-demo.deploy/commit: "${GIT_SHA}"
 spec:
   replicas: 2
   selector:
@@ -14,6 +18,10 @@ spec:
     metadata:
       labels:
         app: gateway
+        app.kubernetes.io/version: "${GIT_SHA}"
+      annotations:
+        sre-demo.deploy/branch: "${GIT_BRANCH}"
+        sre-demo.deploy/commit: "${GIT_SHA}"
     spec:
       containers:
         - name: gateway

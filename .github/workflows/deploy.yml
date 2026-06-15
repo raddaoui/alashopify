@@ -100,6 +100,8 @@ jobs:
         run: |
           export ACR_LOGIN_SERVER=${{ env.ACR_LOGIN_SERVER }}
           export IMAGE_TAG=${{ env.IMAGE_TAG }}
+          export GIT_BRANCH=${{ github.ref_name }}
+          export GIT_SHA=${{ github.sha }}
           for svc in products users orders gateway; do
             envsubst < k8s/$svc.yaml | kubectl apply -f -
           done
