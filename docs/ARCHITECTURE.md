@@ -49,7 +49,8 @@ flowchart TD
 
 ## Checkout request flow
 
-The checkout path is the most interesting one — and where the fault lives.
+The checkout path is the most interesting one, fanning out to `users`,
+`products`, and MySQL before confirming the order.
 
 ```mermaid
 sequenceDiagram
@@ -122,27 +123,12 @@ flowchart LR
 - Applies manifests and waits for rollouts.
 - Authenticates with a service principal (`AZURE_CREDENTIALS` secret).
 
-## The injected fault (`release/v2`)
+## Branches
 
-The `main` branch is healthy. The `release/v2` branch changes **only the
-`orders` service** to simulate a real regression in the checkout endpoint:
+- **`main`** — the baseline of the application.
+- **`release/v2`** — a candidate release deployed for the SRE agent demo.
 
-1. **High latency** — an artificial, expensive/blocking database operation is
-   added to the checkout path, inflating p95 latency. In distributed traces this
-   shows up as a slow DB span inside `orders`.
-2. **Intermittent HTTP 500s** — an unhandled edge case throws on a subset of
-   requests, producing a non-zero 5xx rate rather than a constant failure.
-
-### Symptoms the SRE agent should observe
-- Rising checkout latency and a non-zero 5xx rate, **isolated to `orders`**.
-- Traces showing the slow database span on the checkout path.
-- Healthy `users`, `products`, and `gateway` (so the blast radius points at
-  `orders`).
-- Alert rules firing for 5xx rate and latency.
-
-### Expected diagnosis & fix
-- **Diagnosis:** the latest `orders` deployment introduced a slow checkout query
-  plus an unhandled error path.
-- **Fix:** roll back to the previous healthy image (redeploy `main`), or remove
-  the artificial slow operation and handle the edge case in the `orders`
-  checkout code.
+The SRE agent is expected to detect, localize, and diagnose any regression in a
+deployed release on its own, using the available telemetry (distributed traces,
+metrics, logs) and alert signals — without being told in advance what, where, or
+why something is wrong.
