@@ -44,13 +44,13 @@ docs/ARCHITECTURE.md           # architecture doc
 
 ## 1. Provision Azure resources
 
-All commands default to region **eastus2** and the **ala-shopify** naming prefix.
+All commands default to region **westus3** and the **ala-shopify** naming prefix.
 > **Note:** ACR names must be globally unique and alphanumeric. Change `ACR_NAME`
 > if `alashopifyacr` is taken.
 
 ```bash
 # --- Variables ---
-LOCATION=eastus2
+LOCATION=westus3
 RESOURCE_GROUP=ala-shopify-rg
 ACR_NAME=alashopifyacr
 AKS_CLUSTER=ala-shopify-aks

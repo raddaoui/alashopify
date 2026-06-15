@@ -9,7 +9,7 @@
 set -euo pipefail
 
 RESOURCE_GROUP="${RESOURCE_GROUP:-ala-shopify-rg}"
-LOCATION="${LOCATION:-eastus2}"
+LOCATION="${LOCATION:-westus3}"
 APPINSIGHTS_NAME="${APPINSIGHTS_NAME:-ala-shopify-ai}"
 WORKSPACE_NAME="${WORKSPACE_NAME:-ala-shopify-logs}"
 ALERT_EMAIL="${ALERT_EMAIL:-sre@example.com}"
