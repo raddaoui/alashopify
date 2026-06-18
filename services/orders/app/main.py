@@ -1,7 +1,8 @@
 """orders service — places orders by calling users + products, writes to MySQL.
 
-This is the HEALTHY version that lives on `main`. The `release/v2` branch
-injects a performance/500 fault into the checkout path for the SRE demo.
+VERSION v2: adds a "loyalty discount" feature to checkout. Customers accrue a
+tier (bronze/silver/gold) based on their order history and receive a matching
+discount on their order total.
 """
 import os
 from typing import List
@@ -64,6 +65,44 @@ def _get_product(product_id: int) -> dict:
     return resp.json()
 
 
+# --- v2 loyalty discount feature -------------------------------------------
+# Discount rate keyed by loyalty tier.
+LOYALTY_RATES = {
+    "bronze": 0.00,
+    "silver": 0.05,
+    "gold": 0.10,
+}
+
+
+def _loyalty_tier(order_count: int) -> str:
+    if order_count >= 15:
+        return "platinum"
+    if order_count >= 10:
+        return "gold"
+    if order_count >= 3:
+        return "silver"
+    return "bronze"
+
+
+def _loyalty_discount(user_id: int) -> float:
+    """Compute the customer's loyalty discount based on their order history."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS c, SLEEP(0.6) AS s "
+                "FROM orders WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            order_count = int(row["c"]) if row else 0
+    finally:
+        conn.close()
+
+    tier = _loyalty_tier(order_count)
+    return LOYALTY_RATES[tier]
+
+
 @app.post("/orders")
 def create_order(req: CheckoutRequest):
     _get_user(req.user_id)
@@ -75,6 +114,10 @@ def create_order(req: CheckoutRequest):
         line_total = float(product["price"]) * item.quantity
         total += line_total
         priced_items.append((item.product_id, item.quantity, line_total))
+
+    # v2: apply loyalty discount
+    discount_rate = _loyalty_discount(req.user_id)
+    total = total * (1 - discount_rate)
 
     conn = get_connection()
     try:
